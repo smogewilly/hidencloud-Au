@@ -123,35 +123,7 @@ def renew_service(page):
         log("等待 0.9 秒...")
         time.sleep(0.9)
 
-# +++ 解决方案：使用 page.wait_for_url() 代替网络监听 +++
-        log("步骤 2: 正在查找并点击 'Create Invoice' 按钮...")
-        
-        # 查找按钮
-        create_invoice_button = page.locator('button:has-text("Create Invoice")')
-        create_invoice_button.wait_for(state="visible", timeout=30000)
-        
-        log("✅ 'Create Invoice' 按钮已找到，正在点击并等待页面跳转...")
-        
-        # 点击按钮，这将触发导航
-        create_invoice_button.click()
-        
-        # 等待页面 URL 变为包含 /payment/invoice/ 的新 URL
-        # 这是更健壮的方式，它不关心导航是服务器端还是客户端触发的
-        try:
-            page.wait_for_url(
-                "**/payment/invoice/**", 
-                timeout=30000, 
-                wait_until="networkidle"
-            )
-            log(f"🎉 成功跳转到发票页面: {page.url}")
-        except PlaywrightTimeoutError:
-            log("❌ 错误：点击 'Create Invoice' 后，页面未在30秒内跳转到发票页面。")
-            page.screenshot(path="invoice_navigation_timeout.png")
-            raise Exception("Failed to navigate to invoice page after clicking 'Create Invoice'.")
-        
-        # 此时，页面已成功加载了发票页面，脚本可以继续执行下一步
-
-# +++ 解决方案：处理新标签页 (New Tab) 导航 +++
+        # +++ 解决方案：处理新标签页 (New Tab) 导航 +++
         log("步骤 2: 正在查找 'Create Invoice' 按钮...")
         create_invoice_button = page.locator('button:has-text("Create Invoice")')
         create_invoice_button.wait_for(state="visible", timeout=30000)
@@ -207,7 +179,9 @@ def renew_service(page):
         
         # 别忘了关闭新打开的页面
         invoice_page.close()
+        
         return True
+    
     except PlaywrightTimeoutError as e:
         log(f"❌ 续费任务超时: 未在规定时间内找到元素。请检查选择器或页面是否已更改。错误: {e}")
         page.screenshot(path="renew_timeout_error.png")
