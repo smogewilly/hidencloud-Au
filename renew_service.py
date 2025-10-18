@@ -114,33 +114,54 @@ def renew_service(page):
         
         log("服务管理页面已加载。")
 
-        # +++ 解决方案：(方案十二) 绕过UI，直接发送API POST请求 +++
-        log("步骤 1: 绕过UI，直接向API发送续费POST请求...")
+        # +++ 解决方案：(方案十三) 抓取并发送 CSRF 令牌 +++
         
-        response = page.request.post(RENEW_API_URL, fail_on_status_code=False)
+        # 步骤 1: 从页面的 meta 标签中抓取 CSRF 令牌
+        log("步骤 1: 正在从页面抓取 CSRF 令牌...")
+        csrf_token_locator = page.locator('meta[name="csrf-token"]')
+        csrf_token = csrf_token_locator.get_attribute('content')
 
-        # +++ 关键修复：使用 .status (属性) 而不是 .status() (方法) +++
+        if not csrf_token:
+            log("❌ 错误：未能从 <meta name=\"csrf-token\"> 标签中找到 CSRF 令牌。")
+            page.screenshot(path="csrf_token_not_found.png")
+            raise Exception("CSRF Token not found in meta tag.")
+            
+        log(f"✅ 成功抓取到 CSRF 令牌。 (令牌开头: {csrf_token[:6]}...)")
+
+        # 步骤 2: 绕过UI，直接向API发送 *携带令牌* 的POST请求
+        log("步骤 2: 绕过UI，直接向API发送携带令牌的POST请求...")
+        
+        # 将令牌作为 X-CSRF-TOKEN 请求头发回
+        headers = {
+            'X-CSRF-TOKEN': csrf_token
+        }
+
+        response = page.request.post(
+            RENEW_API_URL,
+            headers=headers,
+            fail_on_status_code=False
+        )
+        
         log(f"API 响应状态: {response.status}")
 
         # 检查是否是我们预期的 302 Found
         if response.status == 302:
-            # 从响应头中获取 'Location'
             invoice_url = response.headers.get('location')
             
             if invoice_url and "/payment/invoice/" in invoice_url:
                 log(f"🎉 成功创建Invoice (API)！正在跳转到: {invoice_url}")
-                # 手动跳转到发票页面
                 page.goto(invoice_url, wait_until="networkidle")
             else:
                 log(f"❌ 错误：API返回了302，但没有找到有效的发票URL。Location: {invoice_url}")
                 raise Exception("API returned 302 but no valid invoice URL found.")
         else:
             log(f"❌ 错误：API请求失败。预期状态 302，但收到了 {response.status}。")
+            log(f"响应内容: {response.text()}")
             page.screenshot(path="api_post_failed.png")
             raise Exception(f"API request failed with status {response.status}.")
         
-        # +++ 步骤 2：在 *当前* 发票页面上操作 +++
-        log("步骤 2: 正在查找可见的 'Pay' 按钮...")
+        # +++ 步骤 3：在 *当前* 发票页面上操作 +++
+        log("步骤 3: 正在查找可见的 'Pay' 按钮...")
         
         pay_button = page.locator('a:has-text("Pay"):visible, button:has-text("Pay"):visible').first
         pay_button.wait_for(state="visible", timeout=10000) 
