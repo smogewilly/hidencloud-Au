@@ -123,20 +123,19 @@ def renew_service(page):
         log("等待 0.9 秒...")
         time.sleep(0.9)
 
-        # +++ 解决方案：(方案九) 使用 JavaScript evaluate() 强制点击 +++
+        # +++ 解决方案：(方案十) 使用 dispatch_event() 派发事件 +++
         log("步骤 2: 正在查找 'Create Invoice' 按钮...")
         create_invoice_button = page.locator('button:has-text("Create Invoice")')
         
         create_invoice_button.wait_for(state="visible", timeout=30000)
         
-        log("✅ 'Create Invoice' 按钮已可见，尝试使用 JavaScript .click() 强制执行...")
+        log("✅ 'Create Invoice' 按钮已可见，尝试使用 dispatch_event('click') 强制执行...")
         
         # +++ 关键修改 +++
-        # 使用 evaluate 在浏览器上下文中执行 'node.click()'
-        # 这将绕过 Playwright 的 'isTrusted' 标志，使其看起来像一个真正的JS点击
-        create_invoice_button.evaluate('node => node.click()')
+        # 这是最后一种模拟点击的方式。它不使用 .click()，而是直接在DOM元素上“派发”一个点击事件。
+        create_invoice_button.dispatch_event('click')
         
-        log("按钮已点击 (JS)。正在等待发票页面内容加载...")
+        log("按钮已点击 (dispatch_event)。正在等待发票页面内容加载...")
         
         # 3. 等待结果：我们仍然等待页面上的关键内容
         try:
@@ -171,11 +170,11 @@ def renew_service(page):
         return True
     
     except PlaywrightTimeoutError as e:
-        log(f"❌ <b>续费任务超时:</b> 未在规定时间内找到元素。请检查选择器或页面是否已更改。错误: {e}")
+        log(f"❌ 续费任务超时: 未在规定时间内找到元素。请检查选择器或页面是否已更改。错误: {e}")
         page.screenshot(path="renew_timeout_error.png")
         return False
     except Exception as e:
-        log(f"❌ <b>续费任务执行过程中发生未知错误:</b> {e}")
+        log(f"❌ 续费任务执行过程中发生未知错误: {e}")
         page.screenshot(path="renew_general_error.png")
         return False
 
