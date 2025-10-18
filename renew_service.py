@@ -182,11 +182,11 @@ def renew_service(page):
         return True
     
     except PlaywrightTimeoutError as e:
-        log(f"❌ 续费任务超时: 未在规定时间内找到元素。请检查选择器或页面是否已更改。错误: {e}")
+        log(f"❌ <b>续费任务超时:</b> 未在规定时间内找到元素。请检查选择器或页面是否已更改。错误: {e}")
         page.screenshot(path="renew_timeout_error.png")
         return False
     except Exception as e:
-        log(f"❌ 续费任务执行过程中发生未知错误: {e}")
+        log(f"❌ <b>续费任务执行过程中发生未知错误:</b> {e}")
         page.screenshot(path="renew_general_error.png")
         return False
 
@@ -216,18 +216,11 @@ def main():
 
             if not renew_service(page):
                 log("续费失败，程序终止。")
-                sys.exit。
+                # +++ 语法错误修复 +++
+                sys.exit(1) # <--- 这里之前是 'sys.exit。'
 
             log("🎉🎉🎉 自动化续费任务成功完成！ 🎉🎉🎉")
         except Exception as e:
             log(f"💥 主程序发生严重错误: {e}")
             if 'page' in locals() and page:
-                page.screenshot(path="main_critical_error.png")
-            sys.exit(1)
-        finally:
-            log("关闭浏览器。")
-            if browser:
-                browser.close()
-
-if __name__ == "__main__":
-    main()
+                page.screenshot(path="main
