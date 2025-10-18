@@ -12,7 +12,7 @@ HIDENCLOUD_PASSWORD = os.environ.get('HIDENCLOUD_PASSWORD')
 BASE_URL = "https://dash.hidencloud.com"
 LOGIN_URL = f"{BASE_URL}/auth/login"
 SERVICE_URL = f"{BASE_URL}/service/71309/manage"
-RENEW_API_URL = f"{BASE_URL}/service/71309/renew" # <--- 从您的抓包中获取
+RENEW_API_URL = f"{BASE_URL}/service/71309/renew" 
 
 # Cookie 名称
 COOKIE_NAME = "remember_web_59ba36addc2b2f9401580f014c7f58ea4e30989d"
@@ -107,14 +107,14 @@ def login(page):
 def renew_service(page):
     """执行续费流程"""
     try:
-        log("开始执行续费任务...")
+        log("开始执行续f费任务...")
         if page.url != SERVICE_URL:
             log(f"当前不在目标页面，正在导航至: {SERVICE_URL}")
             page.goto(SERVICE_URL, wait_until="networkidle", timeout=60000)
         
         log("服务管理页面已加载。")
 
-        # +++ 解决方案：(方案十三) 抓取并发送 CSRF 令牌 +++
+        # +++ 解决方案：(方案十四) 完美复刻API请求 +++
         
         # 步骤 1: 从页面的 meta 标签中抓取 CSRF 令牌
         log("步骤 1: 正在从页面抓取 CSRF 令牌...")
@@ -128,17 +128,26 @@ def renew_service(page):
             
         log(f"✅ 成功抓取到 CSRF 令牌。 (令牌开头: {csrf_token[:6]}...)")
 
-        # 步骤 2: 绕过UI，直接向API发送 *携带令牌* 的POST请求
-        log("步骤 2: 绕过UI，直接向API发送携带令牌的POST请求...")
+        # 步骤 2: 准备 "完美" 的请求头和表单数据
+        log("步骤 2: 绕过UI，准备发送 "完美复刻" 的POST请求...")
         
-        # 将令牌作为 X-CSRF-TOKEN 请求头发回
+        # 准备请求头 (Headers)
         headers = {
-            'X-CSRF-TOKEN': csrf_token
+            'X-CSRF-TOKEN': csrf_token,
+            'Referer': SERVICE_URL, # 添加 Referer
+            'Accept': 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml' # 模拟 Turbo 请求
+        }
+
+        # 准备表单数据 (Form Data / Payload)
+        form_data = {
+            '_token': csrf_token, # 在正文中也需要令牌
+            'days': '7'          # 在正文中指定 '7' 天
         }
 
         response = page.request.post(
             RENEW_API_URL,
             headers=headers,
+            form=form_data,      # <--- 关键修改：使用 'form' 来发送 'application/x-www-form-urlencoded'
             fail_on_status_code=False
         )
         
