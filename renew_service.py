@@ -123,50 +123,33 @@ def renew_service(page):
         log("等待 0.9 秒...")
         time.sleep(0.9)
 
-# +++ 最终版代码：直接捕获重定向后的URL +++
-        log("步骤 2: 准备监听网络请求并点击 'Create Invoice' 按钮...")
+# +++ 解决方案：使用 page.wait_for_url() 代替网络监听 +++
+        log("步骤 2: 正在查找并点击 'Create Invoice' 按钮...")
         
-        # 准备一个变量来存储我们捕获到的新URL
-        new_invoice_url = None
-
-        # 定义一个响应处理器函数
-        def handle_response(response):
-            nonlocal new_invoice_url
-            # 直接检查响应的最终URL是否是发票页面的URL
-            if "/payment/invoice/" in response.url:
-                new_invoice_url = response.url
-                log(f"🎉 成功捕获到重定向的发票URL: {new_invoice_url}")
-
-        # 在点击之前，启动网络响应监听
-        page.on("response", handle_response)
-        
-        # 查找并点击按钮
+        # 查找按钮
         create_invoice_button = page.locator('button:has-text("Create Invoice")')
         create_invoice_button.wait_for(state="visible", timeout=30000)
+        
+        log("✅ 'Create Invoice' 按钮已找到，正在点击并等待页面跳转...")
+        
+        # 点击按钮，这将触发导航
         create_invoice_button.click()
-        log("✅ 'Create Invoice' 按钮已点击，正在等待网络响应...")
-
-        # 使用一个更智能的循环来等待URL被捕获
-        timeout = 15  # seconds
-        for i in range(timeout):
-            if new_invoice_url:
-                break
-            page.wait_for_timeout(1000)
         
-        # 停止监听，避免影响后续操作
-        page.remove_listener("response", handle_response)
+        # 等待页面 URL 变为包含 /payment/invoice/ 的新 URL
+        # 这是更健壮的方式，它不关心导航是服务器端还是客户端触发的
+        try:
+            page.wait_for_url(
+                "**/payment/invoice/**", 
+                timeout=30000, 
+                wait_until="networkidle"
+            )
+            log(f"🎉 成功跳转到发票页面: {page.url}")
+        except PlaywrightTimeoutError:
+            log("❌ 错误：点击 'Create Invoice' 后，页面未在30秒内跳转到发票页面。")
+            page.screenshot(path="invoice_navigation_timeout.png")
+            raise Exception("Failed to navigate to invoice page after clicking 'Create Invoice'.")
         
-        # 检查是否成功获取到URL
-        if new_invoice_url:
-            log(f"正在手动跳转到新发票页面: {new_invoice_url}")
-            # 如果当前URL已经是目标URL，则无需跳转
-            if page.url != new_invoice_url:
-                 page.goto(new_invoice_url, wait_until="networkidle", timeout=60000)
-            else:
-                 log("浏览器已自动跳转到正确页面，无需手动跳转。")
-        else:
-            log("❌ 错误：未能从网络响应中捕获到新发票的URL。")
-            raise Exception("Failed to capture new invoice URL from network response.")
+        # 此时，页面已成功加载了发票页面，脚本可以继续执行下一步
 
 # +++ 修改后的代码 +++
         log("步骤 3: 正在查找可见的 'Pay' 按钮...")
