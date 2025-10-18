@@ -123,38 +123,35 @@ def renew_service(page):
         log("等待 0.9 秒...")
         time.sleep(0.9)
 
-        # +++ 解决方案：(方案五) 等待新页面的 *内容* 出现 +++
+        # +++ 解决方案：(方案六) 使用 expect_navigation 捕获跳转 +++
         log("步骤 2: 正在查找 'Create Invoice' 按钮...")
         create_invoice_button = page.locator('button:has-text("Create Invoice")')
         create_invoice_button.wait_for(state="visible", timeout=30000)
         
-        log("✅ 'Create Invoice' 按钮已找到，正在点击...")
-        
-        # 点击按钮，这将触发客户端导航或重定向
-        create_invoice_button.click()
-        
-        log("按钮已点击。正在等待发票页面内容加载...")
+        log("✅ 'Create Invoice' 按钮已找到，准备点击并*同时*监听导航事件...")
         
         # 关键修改：
-        # 我们不再等待 URL 变化（因为它不可靠）。
-        # 我们直接等待新页面上的 *关键元素* 出现。
-        # 根据截图 'image_7bdc43.png'，我们等待 "Success!" 消息。
+        # 我们使用 'with page.expect_navigation(...)' 来包裹 click() 动作
+        # 这会先启动监听，再执行点击，确保不会错过任何跳转
         try:
-            # 查找那个绿色的 "Success! Invoice has been generated successfully" 提示框
-            success_message_locator = page.locator('div:has-text("Success! Invoice has been generated successfully")')
+            with page.expect_navigation(
+                url="**/payment/invoice/**",  # 告诉它我们期望的URL模式
+                wait_until="domcontentloaded", # 使用更快的 'domcontentloaded'
+                timeout=30000
+            ) as navigation_info:
+                create_invoice_button.click()
             
-            # 等待这个元素在 30 秒内变为可见
-            success_message_locator.wait_for(state="visible", timeout=30000)
-            
-            log(f"🎉 成功跳转到发票页面 (检测到Success消息)。")
-            log(f"当前 URL: {page.url}") # 打印一下URL，确认它是否已更改
-            
+            log(f"🎉 成功捕获到页面跳转! 正在加载新页面...")
+            # 'navigation_info.value' 是导航的响应，可以不用管它
+            # 此时，'page' 对象本身已经自动更新到了新页面
+            log(f"✅ 成功跳转到发票页面: {page.url}")
+
         except PlaywrightTimeoutError:
-            log("❌ 错误：点击 'Create Invoice' 后，未在30秒内检测到 'Success!' 消息。")
-            page.screenshot(path="invoice_content_timeout.png")
-            raise Exception("Failed to find success message after clicking 'Create Invoice'.")
+            log("❌ 错误：点击 'Create Invoice' 后，未在30秒内捕获到 '**/payment/invoice/**' 的导航事件。")
+            page.screenshot(path="invoice_navigation_timeout.png")
+            raise Exception("Failed to capture navigation to invoice page after clicking 'Create Invoice'.")
         
-        # +++ 步骤 3：在 *当前* 发票页面上操作 +++
+        # +++ 步骤 3：在 *当前* (已跳转) 的发票页面上操作 +++
         log("步骤 3: 正在查找可见的 'Pay' 按钮...")
         
         # 页面已跳转，我们现在在发票页上操作 'page' 对象
@@ -171,7 +168,7 @@ def renew_service(page):
         
         return True
     
-    except PlaywrightTimeoutError as e:
+    except PlayTirun_service.pymeoutError as e:
         log(f"❌ 续费任务超时: 未在规定时间内找到元素。请检查选择器或页面是否已更改。错误: {e}")
         page.screenshot(path="renew_timeout_error.png")
         return False
