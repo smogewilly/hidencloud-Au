@@ -129,27 +129,25 @@ def renew_service(page):
         log(f"✅ 成功抓取到 CSRF 令牌。 (令牌开头: {csrf_token[:6]}...)")
 
         # 步骤 2: 准备 "完美" 的请求头和表单数据
-        
-        # +++ 语法错误修复：将外层 " 改为 ' +++
         log('步骤 2: 绕过UI，准备发送 "完美复刻" 的POST请求...')
         
         # 准备请求头 (Headers)
         headers = {
             'X-CSRF-TOKEN': csrf_token,
-            'Referer': SERVICE_URL, # 添加 Referer
-            'Accept': 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml' # 模拟 Turbo 请求
+            'Referer': SERVICE_URL, 
+            'Accept': 'text/vnd.turbo-stream.html, text/html, application/xhtml+xml'
         }
 
         # 准备表单数据 (Form Data / Payload)
         form_data = {
-            '_token': csrf_token, # 在正文中也需要令牌
-            'days': '7'          # 在正文中指定 '7' 天
+            '_token': csrf_token, 
+            'days': '7'          
         }
 
         response = page.request.post(
             RENEW_API_URL,
             headers=headers,
-            form=form_data,      # <--- 关键修改：使用 'form' 来发送 'application/x-www-form-urlencoded'
+            form=form_data,
             fail_on_status_code=False
         )
         
@@ -157,4 +155,83 @@ def renew_service(page):
 
         # 检查是否是我们预期的 302 Found
         if response.status == 302:
-            invoice
+            invoice_url = response.headers.get('location')
+            
+            if invoice_url and "/payment/invoice/" in invoice_url:
+                log(f"🎉 成功创建Invoice (API)！正在跳转到: {invoice_url}")
+                page.goto(invoice_url, wait_until="networkidle")
+            else:
+                log(f"❌ 错误：API返回了302，但没有找到有效的发票URL。Location: {invoice_url}")
+                raise Exception("API returned 302 but no valid invoice URL found.")
+        else:
+            log(f"❌ 错误：API请求失败。预期状态 302，但收到了 {response.status}。")
+            log(f"响应内容: {response.text()}")
+            page.screenshot(path="api_post_failed.png")
+            raise Exception(f"API request failed with status {response.status}.")
+        
+        # +++ 步骤 3：在 *当前* 发票页面上操作 +++
+        log("步骤 3: 正在查找可见的 'Pay' 按钮...")
+        
+        pay_button = page.locator('a:has-text("Pay"):visible, button:has-text("Pay"):visible').first
+        pay_button.wait_for(state="visible", timeout=10000) 
+        
+        log("✅ 'Pay' 按钮已找到，正在点击...")
+        pay_button.click() 
+        log("✅ 'Pay' 按钮已点击。")
+        
+        time.sleep(5)
+        log("续费流程似乎已成功触发。请登录网站确认续费状态。")
+        page.screenshot(path="renew_success.png")
+        
+        return True
+    
+    except PlaywrightTimeoutError as e:
+        log(f"❌ 续费任务超时: 未在规定时间内找到元素。请检查选择器或页面是否已更改。错误: {e}")
+        page.screenshot(path="renew_timeout_error.png")
+        return False
+    except Exception as e:
+        log(f"❌ 续费任务执行过程中发生未知错误: {e}")
+        page.screenshot(path="renew_general_error.png")
+        return False
+
+def main():
+    """主函数，编排整个自动化流程"""
+    if not HIDENCLOUD_COOKIE and not (HIDENCLOUD_EMAIL and HIDENCLOUD_PASSWORD):
+        log("❌ 致命错误: 必须提供 HIDENCLOUD_COOKIE 或 (HIDENCLOUD_EMAIL 和 HIDENCLOUD_PASSWORD) 环境变量。")
+        sys.exit(1)
+
+    with sync_playwright() as p:
+        browser = None
+        try:
+            log("启动浏览器...")
+            # 添加启动参数以规避检测
+            browser = p.chromium.launch(
+                headless=True,
+                args=['--disable-blink-features=AutomationControlled']
+            )
+            context = browser.new_context(
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            )
+            page = context.new_page()
+
+            if not login(page):
+                log("登录失败，程序终止。")
+                sys.exit(1)
+
+            if not renew_service(page):
+                log("续费失败，程序终止。")
+                sys.exit(1)
+
+            log("🎉🎉🎉 自动化续费任务成功完成！ 🎉🎉🎉")
+        except Exception as e:
+            log(f"💥 主程序发生严重错误: {e}")
+            if 'page' in locals() and page:
+                page.screenshot(path="main_critical_error.png")
+            sys.exit(1)
+        finally:
+            log("关闭浏览器。")
+            if browser:
+                browser.close()
+
+if __name__ == "__main__":
+    main()
