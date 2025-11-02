@@ -11,7 +11,7 @@ HIDENCLOUD_PASSWORD = os.environ.get('HIDENCLOUD_PASSWORD')
 # 目标网页 URL
 BASE_URL = "https://dash.hidencloud.com"
 LOGIN_URL = f"{BASE_URL}/auth/login"
-SERVICE_URL = f"{BASE_URL}/service/62037/manage"
+SERVICE_URL = f"{BASE_URL}/service/71309/manage"
 
 # Cookie 名称
 COOKIE_NAME = "remember_web_59ba36addc2b2f9401580f014c7f58ea4e30989d"
