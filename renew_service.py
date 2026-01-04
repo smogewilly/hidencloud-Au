@@ -11,7 +11,7 @@ HIDENCLOUD_PASSWORD = os.environ.get('HIDENCLOUD_PASSWORD')
 
 BASE_URL = "https://dash.hidencloud.com"
 LOGIN_URL = f"{BASE_URL}/auth/login"
-SERVICE_URL = f"{BASE_URL}/service/71309/manage" # 请确认这是你的服务ID
+SERVICE_URL = f"{BASE_URL}/service/94281/manage" # 请确认这是你的服务ID
 COOKIE_NAME = "remember_web_59ba36addc2b2f9401580f014c7f58ea4e30989d"
 
 def log(message):
@@ -214,7 +214,7 @@ def main():
             )
             context = browser.new_context(
                 viewport={'width': 1920, 'height': 1080},
-                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36'
+                user_agent='Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36'
             )
             page = context.new_page()
             page.add_init_script(STEALTH_JS)
