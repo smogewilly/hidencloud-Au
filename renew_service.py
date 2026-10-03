@@ -88,7 +88,7 @@ def login(page):
         page.goto(LOGIN_URL, wait_until="domcontentloaded", timeout=60000)
         handle_cloudflare(page)
         
-        page.fill('input[name="email"]', HIDENCLOUD_EMAIL)
+        page.fill('input[name="username"]', HIDENCLOUD_EMAIL)
         page.fill('input[name="password"]', HIDENCLOUD_PASSWORD)
         time.sleep(0.5)
         handle_cloudflare(page)
